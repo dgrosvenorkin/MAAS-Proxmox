@@ -48,8 +48,7 @@ else
 fi
 
 # Bookworm+ does not include this, but curtin requires this during the installation.
+# apt-get uses the Debian archive's GPG-signed package index for hash verification.
 if [ ${DEBIAN_VERSION} == '12' ] || [ ${DEBIAN_VERSION} == '13' ]; then
-        wget http://ftp.us.debian.org/debian/pool/main/e/efibootmgr/efibootmgr_17-1_${ARCH}.deb
-        dpkg -i efibootmgr_17-1_${ARCH}.deb
-        rm efibootmgr_17-1_${ARCH}.deb
+        apt-get install -y efibootmgr
 fi

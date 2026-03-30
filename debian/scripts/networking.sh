@@ -65,16 +65,58 @@ chmod 755 /usr/local/bin/netplan
 # version after the installation has been completed.
 # TODO: Figure a way to upstream the changes.
 
+# Fetch the SHA256 of a file from the Launchpad build API.
+# Usage: launchpad_sha256 <launchpad-build-url> <filename>
+launchpad_sha256() {
+    local build_url="$1"
+    local filename="$2"
+    # Convert web URL to REST API URL: launchpad.net/ -> api.launchpad.net/1.0/
+    local api_url="${build_url/launchpad.net\//api.launchpad.net\/1.0\/}"
+
+    python3 -c "
+import urllib.request, json, sys
+
+def fetch_json(url):
+    req = urllib.request.Request(url, headers={'Accept': 'application/json'})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        return json.loads(r.read())
+
+api_url, filename = sys.argv[1], sys.argv[2]
+build = fetch_json(api_url)
+files_url = build.get('files_collection_link', api_url + '/+files')
+files = fetch_json(files_url)
+for entry in files.get('entries', []):
+    if entry.get('filename') == filename:
+        sha256 = entry.get('sha256', '')
+        if sha256 and len(sha256) == 64:
+            print(sha256)
+            sys.exit(0)
+print('ERROR: sha256 not found for ' + filename, file=sys.stderr)
+sys.exit(1)
+" "${api_url}" "${filename}"
+}
+
 # Bookworm LP#2011454
+# These are Ubuntu cloud-init builds with MAAS support that Debian's version lacks.
+CLOUD_INIT_23_DEB="cloud-init_23.1.2-0ubuntu0~23.04.1_all.deb"
+CLOUD_INIT_23_BUILD="https://launchpad.net/~ubuntu-security/+archive/ubuntu/ubuntu-security-collab/+build/26002103"
+
+CLOUD_INIT_20_DEB="cloud-init_20.1-10-g71af48df-0ubuntu5_all.deb"
+CLOUD_INIT_20_BUILD="https://launchpad.net/ubuntu/+source/cloud-init/20.1-10-g71af48df-0ubuntu5/+build/19168684"
+
 if [ ${DEBIAN_VERSION} == '12' ] || [ ${DEBIAN_VERSION} == '13' ]; then
      apt-get -y install python3-netifaces isc-dhcp-client python3-six
-     wget https://launchpad.net/~ubuntu-security/+archive/ubuntu/ubuntu-security-collab/+build/26002103/+files/cloud-init_23.1.2-0ubuntu0~23.04.1_all.deb
-     dpkg -i cloud-init_23.1.2-0ubuntu0~23.04.1_all.deb
-     rm cloud-init_23.1.2-0ubuntu0~23.04.1_all.deb
+     CLOUD_INIT_23_SHA256=$(launchpad_sha256 "${CLOUD_INIT_23_BUILD}" "${CLOUD_INIT_23_DEB}")
+     wget "${CLOUD_INIT_23_BUILD}/+files/${CLOUD_INIT_23_DEB}" -O "${CLOUD_INIT_23_DEB}"
+     echo "${CLOUD_INIT_23_SHA256}  ${CLOUD_INIT_23_DEB}" | sha256sum -c
+     dpkg -i "${CLOUD_INIT_23_DEB}"
+     rm "${CLOUD_INIT_23_DEB}"
 else
-    wget https://launchpad.net/ubuntu/+source/cloud-init/20.1-10-g71af48df-0ubuntu5/+build/19168684/+files/cloud-init_20.1-10-g71af48df-0ubuntu5_all.deb
-    dpkg -i cloud-init_20.1-10-g71af48df-0ubuntu5_all.deb
-    rm cloud-init_20.1-10-g71af48df-0ubuntu5_all.deb
+    CLOUD_INIT_20_SHA256=$(launchpad_sha256 "${CLOUD_INIT_20_BUILD}" "${CLOUD_INIT_20_DEB}")
+    wget "${CLOUD_INIT_20_BUILD}/+files/${CLOUD_INIT_20_DEB}" -O "${CLOUD_INIT_20_DEB}"
+    echo "${CLOUD_INIT_20_SHA256}  ${CLOUD_INIT_20_DEB}" | sha256sum -c
+    dpkg -i "${CLOUD_INIT_20_DEB}"
+    rm "${CLOUD_INIT_20_DEB}"
 fi
 
 # Extra Trixie Specific

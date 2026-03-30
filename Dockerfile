@@ -20,10 +20,17 @@ RUN apt-get update && apt-get install -y \
     lsb-release \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Packer (latest version)
-RUN wget -O /tmp/packer.zip https://releases.hashicorp.com/packer/1.11.2/packer_1.11.2_linux_amd64.zip \
-    && unzip /tmp/packer.zip -d /usr/local/bin/ \
-    && rm /tmp/packer.zip \
+# Install Packer with checksum verification
+# SHA256SUMS sourced from: https://releases.hashicorp.com/packer/1.11.2/packer_1.11.2_SHA256SUMS
+ARG PACKER_VERSION=1.11.2
+RUN cd /tmp \
+    && wget -O "packer_${PACKER_VERSION}_linux_amd64.zip" \
+        "https://releases.hashicorp.com/packer/${PACKER_VERSION}/packer_${PACKER_VERSION}_linux_amd64.zip" \
+    && wget -O packer_SHA256SUMS \
+        "https://releases.hashicorp.com/packer/${PACKER_VERSION}/packer_${PACKER_VERSION}_SHA256SUMS" \
+    && grep "packer_${PACKER_VERSION}_linux_amd64.zip" packer_SHA256SUMS | sha256sum -c \
+    && unzip "packer_${PACKER_VERSION}_linux_amd64.zip" -d /usr/local/bin/ \
+    && rm "packer_${PACKER_VERSION}_linux_amd64.zip" packer_SHA256SUMS \
     && chmod +x /usr/local/bin/packer
 
 # Create build user (KVM group will be added at runtime by docker-compose)

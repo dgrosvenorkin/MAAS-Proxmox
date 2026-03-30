@@ -39,10 +39,6 @@ echo "Initializing Packer..."
 packer init .
 
 echo ""
-echo "Installing Packer Ansible plugin..."
-packer plugins install github.com/hashicorp/ansible
-
-echo ""
 echo "Starting Proxmox VE image build..."
 echo "This will take approximately 35-45 minutes..."
 echo ""
